@@ -1,0 +1,36 @@
+name: Auto-Update Branch List
+
+on:
+  create: # Triggers automatically when a branch or tag is created
+  delete: # Triggers automatically when a branch or tag is deleted
+  workflow_dispatch: # Lets you trigger it manually if you ever need to
+
+jobs:
+  update-file:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Needed to allow the bot to commit changes to main
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0 # Fetches history so it can see all branches
+
+      - name: Generate branches.txt
+        run: |
+          git fetch --all
+          echo "=== Repository Branches ===" > branches.txt
+          echo "Last Updated: $(date -u) UTC" >> branches.txt
+          echo "==========================" >> branches.txt
+          echo "" >> branches.txt
+          # Fetches remote branches, cleans up text, ignores the HEAD pointer
+          git branch -r | sed 's/^[[:space:]]*origin\///' | grep -v 'HEAD ->' >> branches.txt
+
+      - name: Commit and Push to Main
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@://github.com"
+          git add branches.txt
+          # Only commits if the file actually changed to prevent pointless commits
+          git diff-index --quiet HEAD || (git commit -m "chore: auto-update branches.txt" && git push origin main)
